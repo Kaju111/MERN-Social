@@ -78,3 +78,133 @@ exports.login = async (req, res) => {
     });
   }
 };
+
+// LOGOUT
+exports.logout = async (req, res) => {
+  try {
+    res
+      .status(200)
+      .cookie("token", null, { expires: new Date(Date.now()), httpOnly: true })
+      .json({
+        success: true,
+        message: "Logged out",
+      });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// FOLLOWER
+exports.followUser = async (req, res) => {
+  try {
+    const userToFollow = await User.findById(req.params.id);
+    const loggedInUser = await User.findById(req.user._id);
+
+    if (!userToFollow) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (loggedInUser.following.includes(userToFollow._id)) {
+      const indexfollowing = loggedInUser.following.indexOf(userToFollow._id);
+      const indexfollowers = userToFollow.followers.indexOf(loggedInUser._id);
+
+      loggedInUser.following.splice(indexfollowing, 1);
+      userToFollow.followers.splice(indexfollowers, 1);
+
+      await loggedInUser.save();
+      await userToFollow.save();
+
+      res.status(200).json({
+        success: true,
+        message: "User Unfollowed",
+      });
+    } else {
+      loggedInUser.following.push(userToFollow._id);
+      userToFollow.followers.push(loggedInUser._id);
+
+      await loggedInUser.save();
+      await userToFollow.save();
+
+      res.status(200).json({
+        success: true,
+        message: "User followed",
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+exports.updatePassword = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select("+password");
+
+    const { oldPassword, newPassword } = req.body;
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide old and new password",
+      });
+    }
+
+    const isMatch = await user.matchPassword(oldPassword);
+
+    if (!isMatch) {
+      return res.status(400).json({
+        success: false,
+        message: "Incorrect Old Password",
+      });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Password Updated",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// UPDATE PROFILE
+exports.updateProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+
+    const { name, email } = req.body;
+
+    if (name) {
+      user.name = name;
+    }
+    if (email) {
+      user.email = email;
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Profile Updated",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: true,
+      message: error.message,
+    });
+  }
+};
